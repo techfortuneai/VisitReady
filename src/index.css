@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    font-size: 15.5px;
+    font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    background-color: #f6faf7;
+    color: #18181b;
+  }
+}
+
+.text-2xs {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.text-3xs {
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  body {
+    background-color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body:has(#printable-dashboard-sheet) #root {
+    display: none !important;
+  }
+}

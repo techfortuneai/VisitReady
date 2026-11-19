@@ -1,0 +1,396 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBoundedString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isOptionalBoundedString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    function isValidUser(data, userId) {
+      return data.keys().hasAll(['id', 'email', 'name', 'auth_provider', 'preferences', 'created_at', 'updated_at']) &&
+        data.keys().hasOnly(['id', 'email', 'name', 'auth_provider', 'preferences', 'created_at', 'updated_at']) &&
+        data.id == userId &&
+        data.id == request.auth.uid &&
+        isBoundedString(data.email, 3, 200) &&
+        isBoundedString(data.name, 1, 150) &&
+        data.auth_provider in ['email', 'google', 'demo'] &&
+        data.preferences is map &&
+        isBoundedString(data.created_at, 10, 64) &&
+        isBoundedString(data.updated_at, 10, 64);
+    }
+
+    function isValidPerson(data, userId, personId) {
+      return data.keys().hasAll(['id', 'user_id', 'name', 'relationship', 'created_at', 'updated_at']) &&
+        data.keys().hasOnly([
+          'id', 'user_id', 'name', 'relationship', 'birth_date', 'allergies', 'notes',
+          'height', 'height_unit', 'weight', 'weight_unit', 'blood_type',
+          'medical_history', 'current_medications', 'baseline_bp',
+          'emergency_contact_name', 'emergency_contact_phone', 'created_at', 'updated_at'
+        ]) &&
+        data.id == personId &&
+        data.user_id == userId &&
+        data.user_id == request.auth.uid &&
+        isBoundedString(data.name, 1, 150) &&
+        data.relationship in ['Self', 'Child', 'Spouse', 'Partner', 'Parent', 'Relative', 'Friend', 'Other'] &&
+        isOptionalBoundedString(data, 'birth_date', 40) &&
+        isOptionalBoundedString(data, 'allergies', 1000) &&
+        isOptionalBoundedString(data, 'notes', 4000) &&
+        isOptionalBoundedString(data, 'height', 40) &&
+        (!('height_unit' in data) || data.height_unit in ['in', 'cm']) &&
+        (!('weight' in data) || (data.weight is number && data.weight >= 0 && data.weight <= 500)) &&
+        (!('weight_unit' in data) || data.weight_unit in ['lbs', 'kg']) &&
+        isOptionalBoundedString(data, 'blood_type', 20) &&
+        isOptionalBoundedString(data, 'medical_history', 5000) &&
+        isOptionalBoundedString(data, 'current_medications', 4000) &&
+        isOptionalBoundedString(data, 'baseline_bp', 40) &&
+        isOptionalBoundedString(data, 'emergency_contact_name', 150) &&
+        isOptionalBoundedString(data, 'emergency_contact_phone', 60) &&
+        isBoundedString(data.created_at, 10, 64) &&
+        isBoundedString(data.updated_at, 10, 64);
+    }
+
+    function isValidCondition(data, userId, conditionId) {
+      return data.keys().hasAll(['id', 'user_id', 'person_id', 'name', 'status', 'created_at', 'updated_at']) &&
+        data.keys().hasOnly([
+          'id', 'user_id', 'person_id', 'name', 'diagnosed_date', 'treating_clinician',
+          'doctor_treatments', 'status', 'notes', 'attachments', 'created_at', 'updated_at'
+        ]) &&
+        data.id == conditionId &&
+        data.user_id == userId &&
+        data.user_id == request.auth.uid &&
+        isValidId(data.person_id) &&
+        isBoundedString(data.name, 1, 200) &&
+        data.status in ['active', 'managed', 'monitoring', 'resolved'] &&
+        isOptionalBoundedString(data, 'diagnosed_date', 40) &&
+        isOptionalBoundedString(data, 'treating_clinician', 500) &&
+        isOptionalBoundedString(data, 'notes', 5000) &&
+        (!('doctor_treatments' in data) || (data.doctor_treatments is list && data.doctor_treatments.size() <= 30 && (data.doctor_treatments.size() == 0 || data.doctor_treatments[0] is map))) &&
+        (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 15 && (data.attachments.size() == 0 || data.attachments[0] is map))) &&
+        isBoundedString(data.created_at, 10, 64) &&
+        isBoundedString(data.updated_at, 10, 64);
+    }
+
+    function isValidSymptom(data, userId, symptomId) {
+      return data.keys().hasAll([
+          'id', 'user_id', 'person_id', 'condition_ids', 'symptom_name', 'start_datetime',
+          'ongoing', 'severity_0_to_10', 'description', 'tags', 'created_at', 'updated_at'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'user_id', 'person_id', 'condition_ids', 'symptom_name', 'symptoms_list',
+          'start_datetime', 'end_datetime', 'ongoing', 'severity_0_to_10', 'duration_text',
+          'body_location', 'description', 'context', 'possible_triggers', 'better_or_worse_notes',
+          'associated_symptoms', 'daily_impact', 'tags', 'vitals', 'attachments', 'created_at', 'updated_at'
+        ]) &&
+        data.id == symptomId &&
+        data.user_id == userId &&
+        data.user_id == request.auth.uid &&
+        isValidId(data.person_id) &&
+        data.condition_ids is list && data.condition_ids.size() <= 30 &&
+        (data.condition_ids.size() == 0 || isValidId(data.condition_ids[0])) &&
+        isBoundedString(data.symptom_name, 1, 300) &&
+        (!('symptoms_list' in data) || (data.symptoms_list is list && data.symptoms_list.size() <= 30 && (data.symptoms_list.size() == 0 || isBoundedString(data.symptoms_list[0], 1, 200)))) &&
+        isBoundedString(data.start_datetime, 10, 64) &&
+        isOptionalBoundedString(data, 'end_datetime', 64) &&
+        data.ongoing is bool &&
+        data.severity_0_to_10 is number && data.severity_0_to_10 >= 0 && data.severity_0_to_10 <= 10 &&
+        isOptionalBoundedString(data, 'duration_text', 200) &&
+        isOptionalBoundedString(data, 'body_location', 300) &&
+        isBoundedString(data.description, 0, 5000) &&
+        isOptionalBoundedString(data, 'context', 2000) &&
+        isOptionalBoundedString(data, 'possible_triggers', 2000) &&
+        isOptionalBoundedString(data, 'better_or_worse_notes', 2000) &&
+        isOptionalBoundedString(data, 'associated_symptoms', 2000) &&
+        isOptionalBoundedString(data, 'daily_impact', 2000) &&
+        data.tags is list && data.tags.size() <= 30 &&
+        (data.tags.size() == 0 || isBoundedString(data.tags[0], 1, 100)) &&
+        (!('vitals' in data) || data.vitals is map) &&
+        (!('attachments' in data) || (data.attachments is list && data.attachments.size() <= 15 && (data.attachments.size() == 0 || data.attachments[0] is map))) &&
+        isBoundedString(data.created_at, 10, 64) &&
+        isBoundedString(data.updated_at, 10, 64);
+    }
+
+    function isValidAppointment(data, userId, appointmentId) {
+      return data.keys().hasAll([
+          'id', 'user_id', 'person_id', 'appointment_datetime', 'clinician_or_clinic',
+          'appointment_type', 'status', 'created_at', 'updated_at'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'user_id', 'person_id', 'appointment_datetime', 'clinician_or_clinic',
+          'appointment_type', 'location_or_telehealth', 'notes', 'status', 'created_at', 'updated_at'
+        ]) &&
+        data.id == appointmentId &&
+        data.user_id == userId &&
+        data.user_id == request.auth.uid &&
+        isValidId(data.person_id) &&
+        isBoundedString(data.appointment_datetime, 10, 64) &&
+        isBoundedString(data.clinician_or_clinic, 1, 250) &&
+        data.appointment_type in [
+          'Routine Follow-up', 'Specialist Consultation', 'New Symptom Evaluation',
+          'Lab / Diagnostic Review', 'Urgent Check-in', 'Annual Wellness', 'Other'
+        ] &&
+        isOptionalBoundedString(data, 'location_or_telehealth', 300) &&
+        isOptionalBoundedString(data, 'notes', 4000) &&
+        data.status in ['upcoming', 'completed', 'cancelled'] &&
+        isBoundedString(data.created_at, 10, 64) &&
+        isBoundedString(data.updated_at, 10, 64);
+    }
+
+    function isValidSummary(data, userId, summaryId) {
+      return data.keys().hasAll([
+          'id', 'user_id', 'person_id', 'title', 'date_range_start', 'date_range_end',
+          'selected_entry_ids', 'custom_questions', 'created_at'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'user_id', 'person_id', 'appointment_id', 'title', 'date_range_start',
+          'date_range_end', 'selected_entry_ids', 'custom_questions', 'visit_notes', 'created_at'
+        ]) &&
+        data.id == summaryId &&
+        data.user_id == userId &&
+        data.user_id == request.auth.uid &&
+        isValidId(data.person_id) &&
+        (!('appointment_id' in data) || isValidId(data.appointment_id)) &&
+        isBoundedString(data.title, 1, 250) &&
+        isBoundedString(data.date_range_start, 10, 64) &&
+        isBoundedString(data.date_range_end, 10, 64) &&
+        data.selected_entry_ids is list && data.selected_entry_ids.size() <= 500 &&
+        (data.selected_entry_ids.size() == 0 || isValidId(data.selected_entry_ids[0])) &&
+        data.custom_questions is list && data.custom_questions.size() <= 50 &&
+        (data.custom_questions.size() == 0 || isBoundedString(data.custom_questions[0], 1, 500)) &&
+        isOptionalBoundedString(data, 'visit_notes', 5000) &&
+        isBoundedString(data.created_at, 10, 64);
+    }
+
+    function isValidCollaborator(data, userId, collaboratorId) {
+      return data.keys().hasAll([
+          'id', 'user_id', 'person_id', 'email', 'name', 'role', 'access_code', 'status', 'created_at'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'user_id', 'person_id', 'email', 'phone', 'name', 'category',
+          'relationship_detail', 'role', 'notes', 'access_code', 'status', 'created_at'
+        ]) &&
+        data.id == collaboratorId &&
+        data.user_id == userId &&
+        data.user_id == request.auth.uid &&
+        isValidId(data.person_id) &&
+        isBoundedString(data.email, 0, 200) &&
+        isOptionalBoundedString(data, 'phone', 60) &&
+        isBoundedString(data.name, 1, 150) &&
+        (!('category' in data) || data.category in ['Doctor', 'Family', 'Friend']) &&
+        isOptionalBoundedString(data, 'relationship_detail', 150) &&
+        data.role in ['Viewer', 'Editor', 'Doctor / Care Team'] &&
+        isOptionalBoundedString(data, 'notes', 1500) &&
+        isBoundedString(data.access_code, 3, 40) &&
+        data.status in ['active', 'pending'] &&
+        isBoundedString(data.created_at, 10, 64);
+    }
+
+    function isValidVitalLog(data, userId, vitalId) {
+      return data.keys().hasAll(['id', 'user_id', 'person_id', 'recorded_at', 'created_at', 'updated_at']) &&
+        data.keys().hasOnly([
+          'id', 'user_id', 'person_id', 'recorded_at',
+          'blood_pressure_systolic', 'blood_pressure_diastolic',
+          'blood_sugar', 'blood_sugar_context', 'blood_sugar_readings',
+          'oxygen_spo2', 'pulse', 'temperature', 'temperature_unit',
+          'weight', 'weight_unit', 'respiratory_rate', 'remark',
+          'created_at', 'updated_at'
+        ]) &&
+        data.id == vitalId &&
+        data.user_id == userId &&
+        data.user_id == request.auth.uid &&
+        isValidId(data.person_id) &&
+        isBoundedString(data.recorded_at, 10, 64) &&
+        (!('blood_pressure_systolic' in data) || (data.blood_pressure_systolic is number && data.blood_pressure_systolic >= 30 && data.blood_pressure_systolic <= 350)) &&
+        (!('blood_pressure_diastolic' in data) || (data.blood_pressure_diastolic is number && data.blood_pressure_diastolic >= 20 && data.blood_pressure_diastolic <= 250)) &&
+        (!('blood_sugar' in data) || (data.blood_sugar is number && data.blood_sugar >= 10 && data.blood_sugar <= 1500)) &&
+        (!('blood_sugar_context' in data) || data.blood_sugar_context in ['fasting', 'non-fasting', 'random', 'post-meal', 'bedtime']) &&
+        (!('blood_sugar_readings' in data) || (data.blood_sugar_readings is list && data.blood_sugar_readings.size() <= 20 && (data.blood_sugar_readings.size() == 0 || data.blood_sugar_readings[0] is map))) &&
+        (!('oxygen_spo2' in data) || (data.oxygen_spo2 is number && data.oxygen_spo2 >= 40 && data.oxygen_spo2 <= 100)) &&
+        (!('pulse' in data) || (data.pulse is number && data.pulse >= 20 && data.pulse <= 260)) &&
+        (!('temperature' in data) || (data.temperature is number && data.temperature >= 25 && data.temperature <= 115)) &&
+        (!('temperature_unit' in data) || data.temperature_unit in ['F', 'C']) &&
+        (!('weight' in data) || (data.weight is number && data.weight >= 0 && data.weight <= 500)) &&
+        (!('weight_unit' in data) || data.weight_unit in ['lbs', 'kg']) &&
+        (!('respiratory_rate' in data) || (data.respiratory_rate is number && data.respiratory_rate >= 4 && data.respiratory_rate <= 80)) &&
+        isOptionalBoundedString(data, 'remark', 2000) &&
+        isBoundedString(data.created_at, 10, 64) &&
+        isBoundedString(data.updated_at, 10, 64);
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId) && isVerifiedUser();
+      allow list: if false;
+      allow create: if isValidId(userId) && isOwner(userId) && isVerifiedUser() &&
+        isValidUser(incoming(), userId);
+      allow update: if isValidId(userId) && isOwner(userId) && isVerifiedUser() &&
+        isValidUser(incoming(), userId) &&
+        incoming().id == existing().id &&
+        incoming().created_at == existing().created_at &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'preferences', 'updated_at']);
+      allow delete: if isValidId(userId) && isOwner(userId) && isVerifiedUser();
+
+      match /people/{personId} {
+        allow get: if isValidId(userId) && isValidId(personId) && isOwner(userId) && isVerifiedUser();
+        allow list: if isValidId(userId) && isOwner(userId) && isVerifiedUser();
+        allow create: if isValidId(userId) && isValidId(personId) && isOwner(userId) && isVerifiedUser() &&
+          isValidPerson(incoming(), userId, personId) &&
+          exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if isValidId(userId) && isValidId(personId) && isOwner(userId) && isVerifiedUser() &&
+          isValidPerson(incoming(), userId, personId) &&
+          incoming().id == existing().id &&
+          incoming().user_id == existing().user_id &&
+          incoming().created_at == existing().created_at &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'relationship', 'birth_date', 'allergies', 'notes', 'height', 'height_unit',
+            'weight', 'weight_unit', 'blood_type', 'medical_history', 'current_medications',
+            'baseline_bp', 'emergency_contact_name', 'emergency_contact_phone', 'updated_at'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(personId) && isOwner(userId) && isVerifiedUser();
+      }
+
+      match /conditions/{conditionId} {
+        allow get: if isValidId(userId) && isValidId(conditionId) && isOwner(userId) && isVerifiedUser();
+        allow list: if isValidId(userId) && isOwner(userId) && isVerifiedUser();
+        allow create: if isValidId(userId) && isValidId(conditionId) && isOwner(userId) && isVerifiedUser() &&
+          isValidCondition(incoming(), userId, conditionId) &&
+          exists(/databases/$(database)/documents/users/$(userId)/people/$(incoming().person_id));
+        allow update: if isValidId(userId) && isValidId(conditionId) && isOwner(userId) && isVerifiedUser() &&
+          isValidCondition(incoming(), userId, conditionId) &&
+          incoming().id == existing().id &&
+          incoming().user_id == existing().user_id &&
+          incoming().created_at == existing().created_at &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'person_id', 'name', 'diagnosed_date', 'treating_clinician',
+            'doctor_treatments', 'status', 'notes', 'attachments', 'updated_at'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(conditionId) && isOwner(userId) && isVerifiedUser();
+      }
+
+      match /symptoms/{symptomId} {
+        allow get: if isValidId(userId) && isValidId(symptomId) && isOwner(userId) && isVerifiedUser();
+        allow list: if isValidId(userId) && isOwner(userId) && isVerifiedUser();
+        allow create: if isValidId(userId) && isValidId(symptomId) && isOwner(userId) && isVerifiedUser() &&
+          isValidSymptom(incoming(), userId, symptomId) &&
+          exists(/databases/$(database)/documents/users/$(userId)/people/$(incoming().person_id));
+        allow update: if isValidId(userId) && isValidId(symptomId) && isOwner(userId) && isVerifiedUser() &&
+          isValidSymptom(incoming(), userId, symptomId) &&
+          incoming().id == existing().id &&
+          incoming().user_id == existing().user_id &&
+          incoming().created_at == existing().created_at &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'person_id', 'condition_ids', 'symptom_name', 'symptoms_list', 'start_datetime',
+            'end_datetime', 'ongoing', 'severity_0_to_10', 'duration_text', 'body_location',
+            'description', 'context', 'possible_triggers', 'better_or_worse_notes',
+            'associated_symptoms', 'daily_impact', 'tags', 'vitals', 'attachments', 'updated_at'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(symptomId) && isOwner(userId) && isVerifiedUser();
+      }
+
+      match /appointments/{appointmentId} {
+        allow get: if isValidId(userId) && isValidId(appointmentId) && isOwner(userId) && isVerifiedUser();
+        allow list: if isValidId(userId) && isOwner(userId) && isVerifiedUser();
+        allow create: if isValidId(userId) && isValidId(appointmentId) && isOwner(userId) && isVerifiedUser() &&
+          isValidAppointment(incoming(), userId, appointmentId) &&
+          exists(/databases/$(database)/documents/users/$(userId)/people/$(incoming().person_id));
+        allow update: if isValidId(userId) && isValidId(appointmentId) && isOwner(userId) && isVerifiedUser() &&
+          isValidAppointment(incoming(), userId, appointmentId) &&
+          incoming().id == existing().id &&
+          incoming().user_id == existing().user_id &&
+          incoming().created_at == existing().created_at &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'person_id', 'appointment_datetime', 'clinician_or_clinic',
+            'appointment_type', 'location_or_telehealth', 'notes', 'status', 'updated_at'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(appointmentId) && isOwner(userId) && isVerifiedUser();
+      }
+
+      match /summaries/{summaryId} {
+        allow get: if isValidId(userId) && isValidId(summaryId) && isOwner(userId) && isVerifiedUser();
+        allow list: if isValidId(userId) && isOwner(userId) && isVerifiedUser();
+        allow create: if isValidId(userId) && isValidId(summaryId) && isOwner(userId) && isVerifiedUser() &&
+          isValidSummary(incoming(), userId, summaryId) &&
+          exists(/databases/$(database)/documents/users/$(userId)/people/$(incoming().person_id));
+        allow update: if isValidId(userId) && isValidId(summaryId) && isOwner(userId) && isVerifiedUser() &&
+          isValidSummary(incoming(), userId, summaryId) &&
+          incoming().id == existing().id &&
+          incoming().user_id == existing().user_id &&
+          incoming().created_at == existing().created_at &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'person_id', 'appointment_id', 'title', 'date_range_start', 'date_range_end',
+            'selected_entry_ids', 'custom_questions', 'visit_notes'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(summaryId) && isOwner(userId) && isVerifiedUser();
+      }
+
+      match /collaborators/{collaboratorId} {
+        allow get: if isValidId(userId) && isValidId(collaboratorId) && isOwner(userId) && isVerifiedUser();
+        allow list: if isValidId(userId) && isOwner(userId) && isVerifiedUser();
+        allow create: if isValidId(userId) && isValidId(collaboratorId) && isOwner(userId) && isVerifiedUser() &&
+          isValidCollaborator(incoming(), userId, collaboratorId) &&
+          exists(/databases/$(database)/documents/users/$(userId)/people/$(incoming().person_id));
+        allow update: if isValidId(userId) && isValidId(collaboratorId) && isOwner(userId) && isVerifiedUser() &&
+          isValidCollaborator(incoming(), userId, collaboratorId) &&
+          incoming().id == existing().id &&
+          incoming().user_id == existing().user_id &&
+          incoming().created_at == existing().created_at &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'person_id', 'email', 'phone', 'name', 'category',
+            'relationship_detail', 'role', 'notes', 'access_code', 'status'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(collaboratorId) && isOwner(userId) && isVerifiedUser();
+      }
+
+      match /vital_logs/{vitalId} {
+        allow get: if isValidId(userId) && isValidId(vitalId) && isOwner(userId) && isVerifiedUser();
+        allow list: if isValidId(userId) && isOwner(userId) && isVerifiedUser();
+        allow create: if isValidId(userId) && isValidId(vitalId) && isOwner(userId) && isVerifiedUser() &&
+          isValidVitalLog(incoming(), userId, vitalId) &&
+          exists(/databases/$(database)/documents/users/$(userId)/people/$(incoming().person_id));
+        allow update: if isValidId(userId) && isValidId(vitalId) && isOwner(userId) && isVerifiedUser() &&
+          isValidVitalLog(incoming(), userId, vitalId) &&
+          incoming().id == existing().id &&
+          incoming().user_id == existing().user_id &&
+          incoming().created_at == existing().created_at &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'person_id', 'recorded_at', 'blood_pressure_systolic', 'blood_pressure_diastolic',
+            'blood_sugar', 'blood_sugar_context', 'blood_sugar_readings', 'oxygen_spo2', 'pulse',
+            'temperature', 'temperature_unit', 'weight', 'weight_unit', 'respiratory_rate',
+            'remark', 'updated_at'
+          ]);
+        allow delete: if isValidId(userId) && isValidId(vitalId) && isOwner(userId) && isVerifiedUser();
+      }
+    }
+  }
+}

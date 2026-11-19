@@ -1,0 +1,263 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Private VisitReady account profile and regional preferences (stored strictly per user).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "name": { "type": "string", "maxLength": 150 },
+        "auth_provider": { "type": "string", "enum": ["email", "google", "demo"] },
+        "preferences": { "type": "object" },
+        "created_at": { "type": "string", "maxLength": 64 },
+        "updated_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "email", "name", "auth_provider", "preferences", "created_at", "updated_at"]
+    },
+    "Person": {
+      "title": "Person",
+      "description": "Patient / family member health profile owned by the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 150 },
+        "relationship": {
+          "type": "string",
+          "enum": ["Self", "Child", "Spouse", "Partner", "Parent", "Relative", "Friend", "Other"]
+        },
+        "birth_date": { "type": "string", "maxLength": 40 },
+        "allergies": { "type": "string", "maxLength": 1000 },
+        "notes": { "type": "string", "maxLength": 4000 },
+        "height": { "type": "string", "maxLength": 40 },
+        "height_unit": { "type": "string", "enum": ["in", "cm"] },
+        "weight": { "type": "number" },
+        "weight_unit": { "type": "string", "enum": ["lbs", "kg"] },
+        "blood_type": { "type": "string", "maxLength": 20 },
+        "medical_history": { "type": "string", "maxLength": 5000 },
+        "current_medications": { "type": "string", "maxLength": 4000 },
+        "baseline_bp": { "type": "string", "maxLength": 40 },
+        "emergency_contact_name": { "type": "string", "maxLength": 150 },
+        "emergency_contact_phone": { "type": "string", "maxLength": 60 },
+        "created_at": { "type": "string", "maxLength": 64 },
+        "updated_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "user_id", "name", "relationship", "created_at", "updated_at"]
+    },
+    "Condition": {
+      "title": "Condition",
+      "description": "Tracked disease or chronic condition with doctor treatment plans and attached reports.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "person_id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "diagnosed_date": { "type": "string", "maxLength": 40 },
+        "treating_clinician": { "type": "string", "maxLength": 500 },
+        "doctor_treatments": { "type": "array" },
+        "status": { "type": "string", "enum": ["active", "managed", "monitoring", "resolved"] },
+        "notes": { "type": "string", "maxLength": 5000 },
+        "attachments": { "type": "array" },
+        "created_at": { "type": "string", "maxLength": 64 },
+        "updated_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "user_id", "person_id", "name", "status", "created_at", "updated_at"]
+    },
+    "SymptomEntry": {
+      "title": "SymptomEntry",
+      "description": "Detailed symptom & vitals log entry linked to a patient profile and diseases.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "person_id": { "type": "string", "maxLength": 128 },
+        "condition_ids": { "type": "array" },
+        "symptom_name": { "type": "string", "maxLength": 300 },
+        "symptoms_list": { "type": "array" },
+        "start_datetime": { "type": "string", "maxLength": 64 },
+        "end_datetime": { "type": "string", "maxLength": 64 },
+        "ongoing": { "type": "boolean" },
+        "severity_0_to_10": { "type": "number" },
+        "duration_text": { "type": "string", "maxLength": 200 },
+        "body_location": { "type": "string", "maxLength": 300 },
+        "description": { "type": "string", "maxLength": 5000 },
+        "context": { "type": "string", "maxLength": 2000 },
+        "possible_triggers": { "type": "string", "maxLength": 2000 },
+        "better_or_worse_notes": { "type": "string", "maxLength": 2000 },
+        "associated_symptoms": { "type": "string", "maxLength": 2000 },
+        "daily_impact": { "type": "string", "maxLength": 2000 },
+        "tags": { "type": "array" },
+        "vitals": { "type": "object" },
+        "attachments": { "type": "array" },
+        "created_at": { "type": "string", "maxLength": 64 },
+        "updated_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "person_id",
+        "condition_ids",
+        "symptom_name",
+        "start_datetime",
+        "ongoing",
+        "severity_0_to_10",
+        "description",
+        "tags",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Upcoming or completed OPD clinic consultation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "person_id": { "type": "string", "maxLength": 128 },
+        "appointment_datetime": { "type": "string", "maxLength": 64 },
+        "clinician_or_clinic": { "type": "string", "maxLength": 250 },
+        "appointment_type": { "type": "string", "maxLength": 100 },
+        "location_or_telehealth": { "type": "string", "maxLength": 300 },
+        "notes": { "type": "string", "maxLength": 4000 },
+        "status": { "type": "string", "enum": ["upcoming", "completed", "cancelled"] },
+        "created_at": { "type": "string", "maxLength": 64 },
+        "updated_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "person_id",
+        "appointment_datetime",
+        "clinician_or_clinic",
+        "appointment_type",
+        "status",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "AppointmentSummary": {
+      "title": "AppointmentSummary",
+      "description": "Saved OPD visit preparation report and custom doctor questions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "person_id": { "type": "string", "maxLength": 128 },
+        "appointment_id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 250 },
+        "date_range_start": { "type": "string", "maxLength": 64 },
+        "date_range_end": { "type": "string", "maxLength": 64 },
+        "selected_entry_ids": { "type": "array" },
+        "custom_questions": { "type": "array" },
+        "visit_notes": { "type": "string", "maxLength": 5000 },
+        "created_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "person_id",
+        "title",
+        "date_range_start",
+        "date_range_end",
+        "selected_entry_ids",
+        "custom_questions",
+        "created_at"
+      ]
+    },
+    "Collaborator": {
+      "title": "Collaborator",
+      "description": "Care circle member (Doctor, Family, or Friend) shared record contact.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "person_id": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 60 },
+        "name": { "type": "string", "maxLength": 150 },
+        "category": { "type": "string", "enum": ["Doctor", "Family", "Friend"] },
+        "relationship_detail": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "enum": ["Viewer", "Editor", "Doctor / Care Team"] },
+        "notes": { "type": "string", "maxLength": 1500 },
+        "access_code": { "type": "string", "maxLength": 40 },
+        "status": { "type": "string", "enum": ["active", "pending"] },
+        "created_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": [
+        "id",
+        "user_id",
+        "person_id",
+        "email",
+        "name",
+        "role",
+        "access_code",
+        "status",
+        "created_at"
+      ]
+    },
+    "DailyVitalLog": {
+      "title": "DailyVitalLog",
+      "description": "Standalone daily home vitals reading (BP, blood sugar, SpO2, pulse, temp, weight, remark) recorded multiple times a day without requiring a disease or symptom.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "person_id": { "type": "string", "maxLength": 128 },
+        "recorded_at": { "type": "string", "maxLength": 64 },
+        "blood_pressure_systolic": { "type": "number" },
+        "blood_pressure_diastolic": { "type": "number" },
+        "blood_sugar": { "type": "number" },
+        "blood_sugar_context": { "type": "string", "maxLength": 32 },
+        "blood_sugar_readings": { "type": "array" },
+        "oxygen_spo2": { "type": "number" },
+        "pulse": { "type": "number" },
+        "temperature": { "type": "number" },
+        "temperature_unit": { "type": "string", "enum": ["F", "C"] },
+        "weight": { "type": "number" },
+        "weight_unit": { "type": "string", "enum": ["lbs", "kg"] },
+        "respiratory_rate": { "type": "number" },
+        "remark": { "type": "string", "maxLength": 2000 },
+        "created_at": { "type": "string", "maxLength": 64 },
+        "updated_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "user_id", "person_id", "recorded_at", "created_at", "updated_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Account profile and regional preferences for an authenticated user."
+    },
+    "/users/{userId}/people/{personId}": {
+      "schema": { "$ref": "#/entities/Person" },
+      "description": "Patient and family member profiles owned by the user."
+    },
+    "/users/{userId}/conditions/{conditionId}": {
+      "schema": { "$ref": "#/entities/Condition" },
+      "description": "Tracked diseases, doctor treatment plans, and medical attachments owned by the user."
+    },
+    "/users/{userId}/symptoms/{symptomId}": {
+      "schema": { "$ref": "#/entities/SymptomEntry" },
+      "description": "Detailed symptom logs, home vitals, and lab/prescription attachments owned by the user."
+    },
+    "/users/{userId}/vital_logs/{vitalId}": {
+      "schema": { "$ref": "#/entities/DailyVitalLog" },
+      "description": "Standalone daily home vitals entries (multiple readings per day) owned by the user."
+    },
+    "/users/{userId}/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/Appointment" },
+      "description": "OPD clinic appointments owned by the user."
+    },
+    "/users/{userId}/summaries/{summaryId}": {
+      "schema": { "$ref": "#/entities/AppointmentSummary" },
+      "description": "Generated OPD visit prep summaries owned by the user."
+    },
+    "/users/{userId}/collaborators/{collaboratorId}": {
+      "schema": { "$ref": "#/entities/Collaborator" },
+      "description": "Shared care circle contacts (Doctors, Family, Friends) owned by the user."
+    }
+  }
+}
